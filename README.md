@@ -8,17 +8,31 @@ ccmcp keeps its own registry (`~/.ccmcp/config.json`) separate from Claude Code'
 
 ## Installation
 
+### One-line install (Linux / macOS)
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iambpn/ccmcp/main/scripts/install.sh | bash
+```
+
+This downloads the latest release binary, verifies its checksum, and installs it to `~/.local/bin/ccmcp`.
+
+If `~/.local/bin` is not in your `PATH`, the installer will tell you exactly what to add to your shell profile (`~/.bashrc`, `~/.zshrc`, etc.).
+
+### Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/iambpn/ccmcp/main/scripts/install.sh | bash -s -- --uninstall
+```
+
+### Windows
+
+Download the latest `ccmcp-win.exe` from the [Releases](https://github.com/iambpn/ccmcp/releases) page and place it somewhere on your `PATH`.
+
+### npm (global)
+
 ```bash
 npm install -g ccmcp
 ```
-
-Or download a pre-built binary from `bin/`:
-
-| Platform | Binary |
-|----------|--------|
-| Linux    | `bin/ccmcp-linux` |
-| macOS    | `bin/ccmcp-macos` |
-| Windows  | `bin/ccmcp-win.exe` |
 
 ## Commands
 
