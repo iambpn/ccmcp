@@ -185,6 +185,15 @@ Existing Claude Code config is left unchanged; only the registry is updated.
 
 The `CCMCP_HOME` environment variable overrides `~/.ccmcp` (useful for testing).
 
+Two environment variables control which `.claude.json` file ccmcp reads and writes:
+
+| Variable | Behaviour |
+|----------|-----------|
+| `CCMCP_CLAUDE_CONFIG` | Full path to the `.claude.json` file — takes precedence over everything else |
+| `CLAUDE_CONFIG_DIR` | Directory that contains `.claude.json`; ccmcp appends `/.claude.json` to this path |
+
+If neither is set, ccmcp defaults to `~/.claude.json`.
+
 ## Scopes
 
 - **global** — server is written to Claude Code's user-level config (`~/.claude.json`), available in all projects.
