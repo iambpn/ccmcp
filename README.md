@@ -6,6 +6,8 @@ A CLI tool for managing MCP (Model Context Protocol) servers used by Claude Code
 
 ccmcp keeps its own registry (`~/.ccmcp/config.json`) separate from Claude Code's config (`~/.claude.json`). You manage servers in the registry, then sync them into Claude Code's config with `ccmcp sync` or `ccmcp link`. Only entries that ccmcp owns are ever modified; servers you added manually in Claude Code are left untouched.
 
+Servers in the registry can be kept **disabled** — they exist in the registry but are not written to Claude Code's config until you enable them. This lets you store server configs you don't always need and toggle them on or off with `ccmcp update <name> --enable true/false` followed by `ccmcp sync`.
+
 ## Installation
 
 ### One-line install (Linux / macOS)
