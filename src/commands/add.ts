@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import type { Command } from "commander";
+import { resolveProjectLocation } from "../git.js";
 import { addServer, loadRegistry } from "../registry.js";
 import type { Scope } from "../types.js";
 import { buildConfig, collect, persist } from "./_shared.js";
@@ -17,7 +17,7 @@ export function registerAdd(program: Command): void {
     .option("--header <KEY:VALUE>", "HTTP header (repeatable)", collect)
     .option("--json <json>", "Raw MCP server config as JSON")
     .option("--scope <scope>", "global | project", "project")
-    .option("--project <path...>", "Project paths (scope=project; defaults to cwd)")
+    .option("--project <path...>", "Project paths (scope=project; omit to leave unlinked)")
     .option("--enabled", "Enable and sync to Claude Code immediately after adding")
     .action((name: string, opts) => {
       const scope = opts.scope as Scope;
@@ -28,8 +28,8 @@ export function registerAdd(program: Command): void {
       const projects =
         scope === "project"
           ? opts.project?.length
-            ? (opts.project as string[]).map((p) => resolve(p))
-            : [process.cwd()]
+            ? (opts.project as string[]).map((p) => resolveProjectLocation(p))
+            : []
           : undefined;
 
       const reg = loadRegistry();

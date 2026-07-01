@@ -12,7 +12,8 @@
     "start": "node dist/bundle.cjs",
     "test": "vitest run",
     "bundle": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs",
-    "package": "npm run bundle && pkg dist/bundle.cjs --targets node18-linux-x64,node18-macos-x64,node18-win-x64 --output bin/ccmcp"
+    "package": "npm run bundle && pkg dist/bundle.cjs --targets node18-linux-x64,node18-macos-x64,node18-win-x64 --output bin/ccmcp",
+    "dev:install": "./scripts/dev-install.sh"
   },
   "keywords": [],
   "author": "",

@@ -1,5 +1,5 @@
-import { resolve } from "node:path";
 import type { Command } from "commander";
+import { resolveProjectLocation } from "../git.js";
 import { getServer, loadRegistry, setEnabled, setScope } from "../registry.js";
 import type { Scope } from "../types.js";
 import { persist } from "./_shared.js";
@@ -17,7 +17,7 @@ export function registerUpdate(program: Command): void {
     .argument("<name>", "Server name")
     .option("--enable <bool>", "Enable or disable the server (true|false)")
     .option("--scope <scope>", "Change scope: global or project")
-    .option("--project <path...>", "Project path(s) when --scope project; defaults to cwd")
+    .option("--project <path...>", "Project path(s) when --scope project")
     .action((name: string, opts) => {
       if (opts.enable === undefined && opts.scope === undefined) {
         throw new Error("Specify at least one option: --enable or --scope.");
@@ -39,10 +39,14 @@ export function registerUpdate(program: Command): void {
         }
         if (scope === "project") {
           const projects = (opts.project as string[] | undefined)?.length
-            ? (opts.project as string[]).map((p) => resolve(p))
-            : [process.cwd()];
+            ? (opts.project as string[]).map((p) => resolveProjectLocation(p))
+            : [];
           setScope(reg, name, "project", projects);
-          console.log(`  scope → project\n    ${projects.join("\n    ")}`);
+          console.log(
+            projects.length
+              ? `  scope → project\n    ${projects.join("\n    ")}`
+              : `  scope → project (not linked to any project; use --project to link one)`,
+          );
         } else {
           setScope(reg, name, scope as Scope);
           console.log(`  scope → global`);

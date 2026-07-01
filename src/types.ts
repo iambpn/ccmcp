@@ -18,7 +18,11 @@ export type Scope = "global" | "project";
 /** A single server entry in the ccmcp registry. */
 export interface RegistryServer {
   config: McpServerConfig;
-  /** On/off switch. Disabled servers stay in the registry but are removed from Claude Code's config. */
+  /**
+   * On/off switch. Disabled servers stay in the registry but are removed from
+   * Claude Code's config on sync — except at locations explicitly attached
+   * via `ccmcp link` (see AppliedState.linked), which persist until unlinked.
+   */
   enabled: boolean;
   /** Where an enabled server is synced: user scope ("global") or local project scope. */
   scope: Scope;
@@ -46,4 +50,11 @@ export type AppliedLocation = "global" | string;
 export interface AppliedState {
   version: number;
   applied: Record<string, AppliedLocation[]>;
+  /**
+   * Locations explicitly attached via `ccmcp link` (as opposed to written by
+   * `sync` from the registry's own enabled+projects). These survive being
+   * disabled: reconcile keeps them until an explicit `unlink` or until the
+   * project is dropped from the entry's `projects` list.
+   */
+  linked?: Record<string, AppliedLocation[]>;
 }

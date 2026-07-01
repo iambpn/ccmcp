@@ -2,7 +2,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { readClaudeConfig, reconcile } from "./claudeConfig.js";
+import { eraseOneServer, readClaudeConfig, reconcile, writeOneServer } from "./claudeConfig.js";
 import {
   addServer,
   getServer,
@@ -43,7 +43,7 @@ describe("registry CRUD", () => {
 
     const reloaded = loadRegistry();
     expect(getServer(reloaded, "a").config.url).toBe("https://a");
-    expect(getServer(reloaded, "a").enabled).toBe(true);
+    expect(getServer(reloaded, "a").enabled).toBe(false);
     expect(getServer(reloaded, "a").scope).toBe("global");
 
     expect(() => addServer(reloaded, { name: "a", config: {} })).toThrow(/already exists/);
@@ -57,7 +57,7 @@ describe("registry CRUD", () => {
 describe("reconcile", () => {
   it("syncs enabled+global to top-level mcpServers", () => {
     const reg = freshRegistry();
-    addServer(reg, { name: "g", config: { type: "http", url: "https://g" }, scope: "global" });
+    addServer(reg, { name: "g", config: { type: "http", url: "https://g" }, scope: "global", enabled: true });
     saveRegistry(reg);
 
     const result = reconcile(reg);
@@ -73,6 +73,7 @@ describe("reconcile", () => {
       config: { type: "stdio", command: "srv" },
       scope: "project",
       projects: ["/proj/one"],
+      enabled: true,
     });
     saveRegistry(reg);
     reconcile(reg);
@@ -84,7 +85,7 @@ describe("reconcile", () => {
 
   it("removes a server from Claude config when disabled, keeps it in registry", () => {
     const reg = freshRegistry();
-    addServer(reg, { name: "g", config: { type: "http", url: "https://g" } });
+    addServer(reg, { name: "g", config: { type: "http", url: "https://g" }, enabled: true });
     saveRegistry(reg);
     reconcile(reg);
     expect(readClaudeConfig().mcpServers?.g).toBeDefined();
@@ -100,7 +101,7 @@ describe("reconcile", () => {
 
   it("relocates a server when its scope changes", () => {
     const reg = freshRegistry();
-    addServer(reg, { name: "s", config: { type: "http", url: "https://s" }, scope: "global" });
+    addServer(reg, { name: "s", config: { type: "http", url: "https://s" }, scope: "global", enabled: true });
     saveRegistry(reg);
     reconcile(reg);
     expect(readClaudeConfig().mcpServers?.s).toBeDefined();
@@ -112,6 +113,87 @@ describe("reconcile", () => {
     const cfg = readClaudeConfig();
     expect(cfg.mcpServers).toBeUndefined();
     expect(cfg.projects?.["/proj/x"].mcpServers?.s).toBeDefined();
+  });
+
+  it("removes a project's entry when that project is dropped from projects[]", () => {
+    const reg = freshRegistry();
+    addServer(reg, {
+      name: "p",
+      config: { type: "stdio", command: "srv" },
+      scope: "project",
+      projects: ["/proj/one", "/proj/two"],
+      enabled: true,
+    });
+    saveRegistry(reg);
+    reconcile(reg);
+    expect(readClaudeConfig().projects?.["/proj/one"].mcpServers?.p).toBeDefined();
+    expect(readClaudeConfig().projects?.["/proj/two"].mcpServers?.p).toBeDefined();
+
+    setScope(reg, "p", "project", ["/proj/one"]);
+    saveRegistry(reg);
+    const result = reconcile(reg);
+
+    expect(result.removed).toEqual([{ name: "p", location: "/proj/two" }]);
+    expect(readClaudeConfig().projects?.["/proj/two"].mcpServers).toBeUndefined();
+    expect(readClaudeConfig().projects?.["/proj/one"].mcpServers?.p).toBeDefined();
+  });
+});
+
+describe("link + sync interaction", () => {
+  it("keeps a manually-linked location through sync even while the entry is disabled", () => {
+    const reg = freshRegistry();
+    addServer(reg, {
+      name: "p",
+      config: { type: "stdio", command: "srv" },
+      scope: "project",
+      projects: ["/proj/original"],
+      enabled: false,
+    });
+    saveRegistry(reg);
+
+    // Simulate `ccmcp link p` from /proj/extra: it records the new project on
+    // the registry entry and writes straight into Claude's config.
+    const entry = getServer(reg, "p");
+    entry.projects = [...(entry.projects ?? []), "/proj/extra"];
+    saveRegistry(reg);
+    writeOneServer("p", entry.config, "/proj/extra");
+    expect(readClaudeConfig().projects?.["/proj/extra"].mcpServers?.p).toBeDefined();
+
+    const result = reconcile(loadRegistry());
+
+    expect(result.removed).toEqual([]);
+    expect(readClaudeConfig().projects?.["/proj/extra"].mcpServers?.p).toBeDefined();
+    expect(readClaudeConfig().projects?.["/proj/original"]).toBeUndefined();
+  });
+
+  it("removes a linked location once it's explicitly unlinked", () => {
+    const reg = freshRegistry();
+    addServer(reg, {
+      name: "p",
+      config: { type: "stdio", command: "srv" },
+      scope: "project",
+      projects: [],
+      enabled: false,
+    });
+    saveRegistry(reg);
+
+    const entry = getServer(reg, "p");
+    entry.projects = ["/proj/extra"];
+    saveRegistry(reg);
+    writeOneServer("p", entry.config, "/proj/extra");
+    reconcile(loadRegistry());
+    expect(readClaudeConfig().projects?.["/proj/extra"].mcpServers?.p).toBeDefined();
+
+    // Simulate `ccmcp unlink p` from /proj/extra.
+    eraseOneServer("p", "/proj/extra");
+    const reg2 = loadRegistry();
+    const entry2 = getServer(reg2, "p");
+    entry2.projects = entry2.projects!.filter((loc) => loc !== "/proj/extra");
+    saveRegistry(reg2);
+
+    const result = reconcile(loadRegistry());
+    expect(readClaudeConfig().projects?.["/proj/extra"]?.mcpServers).toBeUndefined();
+    expect(result.removed).toEqual([]);
   });
 });
 
@@ -127,7 +209,7 @@ describe("safety", () => {
     );
 
     const reg = freshRegistry();
-    addServer(reg, { name: "g", config: { type: "http", url: "https://g" } });
+    addServer(reg, { name: "g", config: { type: "http", url: "https://g" }, enabled: true });
     saveRegistry(reg);
     reconcile(reg);
 
@@ -147,7 +229,7 @@ describe("safety", () => {
 
   it("writes valid JSON atomically", () => {
     const reg = freshRegistry();
-    addServer(reg, { name: "g", config: { type: "http", url: "https://g" } });
+    addServer(reg, { name: "g", config: { type: "http", url: "https://g" }, enabled: true });
     saveRegistry(reg);
     reconcile(reg);
     expect(() => JSON.parse(readFileSync(claudePath, "utf8"))).not.toThrow();

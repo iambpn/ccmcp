@@ -141,7 +141,7 @@ ccmcp unlink my-server
 
 ### `ccmcp sync`
 
-Reconcile the entire registry into Claude Code's config. Enabled servers are written; disabled servers are removed. Only entries previously written by ccmcp are touched.
+Reconcile the entire registry into Claude Code's config. Enabled servers are written; disabled servers are removed — except locations you explicitly attached with `ccmcp link`, which stick around until you `ccmcp unlink` them or drop that project from the server's scope. Only entries previously written by ccmcp are touched.
 
 ```bash
 ccmcp sync

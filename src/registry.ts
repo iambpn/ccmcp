@@ -17,7 +17,7 @@ function emptyRegistry(): Registry {
 }
 
 function emptyState(): AppliedState {
-  return { version: STATE_VERSION, applied: {} };
+  return { version: STATE_VERSION, applied: {}, linked: {} };
 }
 
 function readJson<T>(path: string, fallback: T): T {
@@ -48,6 +48,7 @@ export function saveRegistry(reg: Registry): void {
 export function loadState(): AppliedState {
   const state = readJson<AppliedState>(statePath(), emptyState());
   if (!state.applied) state.applied = {};
+  if (!state.linked) state.linked = {};
   return state;
 }
 
